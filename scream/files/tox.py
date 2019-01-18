@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 
 from .util import File
@@ -17,6 +18,7 @@ whitelist_externals =
     coverage
 deps =
     scream
+    {requirements_dependencies}
 
 ##############################
 # Packages
@@ -57,6 +59,7 @@ TOX_COMMAND_TEMPL = """\
 
 """
 
+REQUIREMENTS_FILE_TEMPLATE = '-r{{toxinidir}}/{}'
 
 class Tox(File):
     def __init__(self, packages=None):
@@ -70,6 +73,8 @@ class Tox(File):
 
             pyversion_matrix = defaultdict(list)
 
+            requirements_files = []
+
             for package in packages:
                 env_commands += TOX_COMMAND_TEMPL.format(
                     package_name=package.package_name,
@@ -80,6 +85,13 @@ class Tox(File):
 
                 pyversion_matrix[version_str].append(package.package_name)
 
+                for filename in os.listdir(package.package_dir):
+                    if filename.startswith('requirements') and filename.endswith('.txt'):
+                        requirements_file = os.path.join(package.package_dir, filename)
+                        requirements_files.append(REQUIREMENTS_FILE_TEMPLATE.format(requirements_file))
+
+            requirements_dependencies = '\n    '.join(requirements_files)
+
             for pyversions, pkgs in pyversion_matrix.items():
                 package_names = ','.join(pkgs)
                 env_matrix.append(env_matrix_tmplate.format(pyversions=pyversions, packages=package_names))
@@ -89,10 +101,12 @@ class Tox(File):
         else:
             env_commands = 'commands = flake8 .'
             env_matrix_str = 'py37'
+            requirements_dependencies=''
 
         super(Tox, self).__init__(
             'tox.ini',
             TEMPLATE.format(
+                requirements_dependencies=requirements_dependencies,
                 env_commands=env_commands,
                 env_matrix=env_matrix_str
             )
