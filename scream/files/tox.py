@@ -52,14 +52,17 @@ omit =
 
 """
 
+ENV_MATRIX_TEMPL = "{{{pyversions}}}-{{{packages}}}"
+
+REQUIREMENTS_FILE_TEMPL = '-r{{toxinidir}}/{}'
+
 TOX_COMMAND_TEMPL = """\
-    {package_name}: flake8 {package_dir} --config={toxinidir}/tox.ini --statistics
+    {package_name}: flake8 {package_dir} --config={{toxinidir}}/tox.ini --statistics
     {package_name}: scream install {package_name}
     {package_name}: coverage run -a -m unittest discover -v -t {package_dir} -s {package_dir}/tests
 
 """
 
-REQUIREMENTS_FILE_TEMPLATE = '-r{{toxinidir}}/{}'
 
 class Tox(File):
     def __init__(self, packages=None):
@@ -67,7 +70,6 @@ class Tox(File):
         if packages:
 
             env_matrix = []
-            env_matrix_tmplate = "{{{pyversions}}}-{{{packages}}}"
 
             env_commands = "commands =\n"
 
@@ -78,8 +80,7 @@ class Tox(File):
             for package in packages:
                 env_commands += TOX_COMMAND_TEMPL.format(
                     package_name=package.package_name,
-                    package_dir=package.package_dir,
-                    toxinidir="{toxinidir}"
+                    package_dir=package.package_dir
                 )
                 version_str = ','.join(package.tox_pyversions)
 
@@ -88,20 +89,20 @@ class Tox(File):
                 for filename in os.listdir(package.package_dir):
                     if filename.startswith('requirements') and filename.endswith('.txt'):
                         requirements_file = os.path.join(package.package_dir, filename)
-                        requirements_files.append(REQUIREMENTS_FILE_TEMPLATE.format(requirements_file))
+                        requirements_files.append(REQUIREMENTS_FILE_TEMPL.format(requirements_file))
 
             requirements_dependencies = '\n    '.join(requirements_files)
 
             for pyversions, pkgs in pyversion_matrix.items():
                 package_names = ','.join(pkgs)
-                env_matrix.append(env_matrix_tmplate.format(pyversions=pyversions, packages=package_names))
+                env_matrix.append(ENV_MATRIX_TEMPL.format(pyversions=pyversions, packages=package_names))
             env_matrix_str = ','.join(env_matrix)
 
         # This is probably a new repo...
         else:
             env_commands = 'commands = flake8 .'
             env_matrix_str = 'py37'
-            requirements_dependencies=''
+            requirements_dependencies = ''
 
         super(Tox, self).__init__(
             'tox.ini',
